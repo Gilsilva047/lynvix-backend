@@ -1,0 +1,312 @@
+// Schema do Prisma para FinançasBR
+// Banco de dados: PostgreSQL (Neon.tech)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum TransactionType {
+  INCOME  // Receita
+  EXPENSE // Gasto
+}
+
+enum TransactionStatus {
+  PAID      // Pago
+  PENDING   // Pendente
+  SCHEDULED // Agendado
+}
+
+enum PaymentMethod {
+  CASH        // Dinheiro
+  PIX         // PIX
+  DEBIT_CARD  // Cartão de Débito
+  CREDIT_CARD // Cartão de Crédito
+  BANK_SLIP   // Boleto
+  TRANSFER    // Transferência
+  OTHER       // Outro
+}
+
+enum RecurrenceFrequency {
+  DAILY   // Diário
+  WEEKLY  // Semanal
+  MONTHLY // Mensal
+  YEARLY  // Anual
+}
+
+enum AccountType {
+  CHECKING   // Conta Corrente
+  SAVINGS    // Poupança
+  INVESTMENT // Investimento
+}
+
+enum GoalStatus {
+  IN_PROGRESS // Em andamento
+  COMPLETED   // Concluída
+  CANCELLED   // Cancelada
+}
+
+enum NotificationType {
+  BILL_DUE         // Conta a vencer
+  CARD_INVOICE     // Fatura do cartão
+  BUDGET_ALERT     // Alerta de orçamento
+  GOAL_PROGRESS    // Progresso de meta
+  WEEKLY_SUMMARY   // Resumo semanal
+  MONTHLY_SUMMARY  // Resumo mensal
+}
+
+enum UserStatus {
+  PENDING  // Pendente de ativação
+  ACTIVE   // Ativo
+  INACTIVE // Desativado
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String     // Hash bcrypt
+  cpf       String?    @unique
+  avatar    String?    // URL da foto de perfil
+  status    UserStatus @default(PENDING) // Status da conta
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relacionamentos
+  categories    Category[]
+  transactions  Transaction[]
+  creditCards   CreditCard[]
+  bankAccounts  BankAccount[]
+  goals         Goal[]
+  budgets       Budget[]
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String
+  icon        String? // Nome do ícone (ex: 'shopping-cart', 'home', etc)
+  color       String? // Cor em hexadecimal (ex: '#FF5733')
+  isDefault   Boolean @default(false) // Se é categoria padrão do sistema
+  userId      String
+  parentId    String? // Para subcategorias
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamentos
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategorySubcategories", fields: [parentId], references: [id])
+  subcategories Category[]   @relation("CategorySubcategories")
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([userId, name, parentId], name: "userId_name_parentId")
+  @@map("categories")
+}
+
+model Transaction {
+  id              String             @id @default(uuid())
+  description     String
+  amount          Decimal            @db.Decimal(10, 2) // Valor em BRL
+  date            DateTime // Data da transação
+  type            TransactionType // INCOME ou EXPENSE
+  status          TransactionStatus // PAID, PENDING, SCHEDULED
+  paymentMethod   PaymentMethod
+  isRecurring     Boolean            @default(false)
+  recurrenceFreq  RecurrenceFrequency?
+  recurrenceEnd   DateTime? // Data final da recorrência
+  notes           String? // Observações
+  tags            String[] // Array de tags
+  installments    Int?               @default(1) // Número de parcelas (para cartão de crédito)
+  installmentNum  Int?               @default(1) // Parcela atual (ex: 3 de 12)
+  userId          String
+  categoryId      String
+  creditCardId    String? // Se foi pago com cartão de crédito
+  bankAccountId   String? // Conta bancária relacionada
+  attachmentId    String? // Anexo (nota fiscal, comprovante)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relacionamentos
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category     @relation(fields: [categoryId], references: [id])
+  creditCard  CreditCard?  @relation(fields: [creditCardId], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  attachment  Attachment?  @relation(fields: [attachmentId], references: [id])
+
+  @@map("transactions")
+}
+
+model CreditCard {
+  id           String   @id @default(uuid())
+  name         String // Ex: "Nubank Mastercard"
+  lastDigits   String // Últimos 4 dígitos
+  limit        Decimal  @db.Decimal(10, 2) // Limite total do cartão
+  closingDay   Int // Dia do fechamento da fatura (1-31)
+  dueDay       Int // Dia do vencimento da fatura (1-31)
+  brand        String? // Visa, Mastercard, Elo, etc
+  color        String? // Cor do cartão (para UI)
+  isActive     Boolean  @default(true)
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relacionamentos
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("credit_cards")
+}
+
+model BankAccount {
+  id           String      @id @default(uuid())
+  name         String // Ex: "Nubank", "Banco do Brasil"
+  bank         String // Nome do banco
+  accountType  AccountType // CHECKING, SAVINGS, INVESTMENT
+  balance      Decimal     @db.Decimal(10, 2) // Saldo atual
+  color        String? // Cor para UI
+  isActive     Boolean     @default(true)
+  userId       String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relacionamentos
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  transfersFrom     Transfer[]    @relation("TransferFrom")
+  transfersTo       Transfer[]    @relation("TransferTo")
+
+  @@map("bank_accounts")
+}
+
+model Transfer {
+  id            String      @id @default(uuid())
+  amount        Decimal     @db.Decimal(10, 2)
+  date          DateTime
+  description   String?
+  fromAccountId String
+  toAccountId   String
+  userId        String // Redundante mas útil para queries
+  createdAt     DateTime    @default(now())
+
+  // Relacionamentos
+  fromAccount BankAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccount   BankAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+
+  @@map("transfers")
+}
+
+model Goal {
+  id              String     @id @default(uuid())
+  name            String // Ex: "Viagem para Europa"
+  description     String?
+  targetAmount    Decimal    @db.Decimal(10, 2) // Valor alvo
+  currentAmount   Decimal    @db.Decimal(10, 2) @default(0) // Valor já economizado
+  deadline        DateTime? // Data limite
+  status          GoalStatus @default(IN_PROGRESS)
+  icon            String?
+  color           String?
+  userId          String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relacionamentos
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@map("goals")
+}
+
+model GoalContribution {
+  id        String   @id @default(uuid())
+  amount    Decimal  @db.Decimal(10, 2)
+  date      DateTime @default(now())
+  notes     String?
+  goalId    String
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("goal_contributions")
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  month      Int // Mês (1-12)
+  year       Int // Ano (ex: 2024)
+  limit      Decimal  @db.Decimal(10, 2) // Limite de gasto para esta categoria no mês
+  spent      Decimal  @db.Decimal(10, 2) @default(0) // Quanto já foi gasto
+  userId     String
+  categoryId String
+  alertAt70  Boolean  @default(true) // Alertar ao atingir 70% do limite
+  alertAt90  Boolean  @default(true) // Alertar ao atingir 90% do limite
+  alertAt100 Boolean  @default(true) // Alertar ao atingir 100% do limite
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId, month, year])
+  @@map("budgets")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  userId    String
+  createdAt DateTime         @default(now())
+
+  // Relacionamentos
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Attachment {
+  id           String        @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int // Tamanho em bytes
+  url          String // URL do arquivo (Cloudinary, S3, etc)
+  createdAt    DateTime      @default(now())
+
+  // Relacionamentos
+  transactions Transaction[]
+
+  @@map("attachments")
+}
