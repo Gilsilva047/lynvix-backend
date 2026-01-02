@@ -565,6 +565,13 @@ npm run format           # Formata código com Prettier
   - Linux/Mac: `lsof -ti:3333 | xargs kill`
   - Windows: `netstat -ano | findstr :3333` e depois `taskkill /PID <PID> /F`
 
+## 📚 Documentação Adicional
+
+- **[CHANGELOG.md](./CHANGELOG.md)** - Histórico de atualizações e mudanças
+- **[docs/API_CONNECTION.md](./docs/API_CONNECTION.md)** - Guia completo de integração com frontend
+- **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Guia de deploy e produção
+- **[docs/TRANSACTION_STATUS_UPDATE.md](./docs/TRANSACTION_STATUS_UPDATE.md)** - Atualização de status de transações
+
 ## 📄 Licença
 
 MIT
