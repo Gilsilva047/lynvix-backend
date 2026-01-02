@@ -43,7 +43,7 @@ class AccountsService {
       throw new AppError('Contas de origem e destino devem ser diferentes', 400);
     }
 
-    const [fromAccount, toAccount] = await Promise.all([
+    const [fromAccount] = await Promise.all([
       this.getAccountById(userId, fromAccountId),
       this.getAccountById(userId, toAccountId),
     ]);

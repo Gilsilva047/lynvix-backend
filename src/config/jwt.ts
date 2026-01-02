@@ -4,7 +4,7 @@
  * Funções auxiliares para gerar e verificar tokens de acesso e refresh
  */
 
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from './env';
 
 export interface JwtPayload {
@@ -18,7 +18,7 @@ export interface JwtPayload {
 export const generateAccessToken = (payload: JwtPayload): string => {
   return jwt.sign(payload, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN,
-  });
+  } as SignOptions);
 };
 
 /**
@@ -27,7 +27,7 @@ export const generateAccessToken = (payload: JwtPayload): string => {
 export const generateRefreshToken = (payload: JwtPayload): string => {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
-  });
+  } as SignOptions);
 };
 
 /**

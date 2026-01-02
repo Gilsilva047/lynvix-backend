@@ -5,7 +5,7 @@
 import prisma from '../../config/database';
 import { AppError } from '../../middlewares/errorHandler';
 import { TransactionFilters, PaginatedResponse } from '../../types';
-import { Prisma, Transaction } from '@prisma/client';
+import { Prisma, Transaction, PaymentMethod, RecurrenceFrequency } from '@prisma/client';
 
 interface CreateTransactionData {
   description: string;
@@ -13,12 +13,12 @@ interface CreateTransactionData {
   date: string;
   type: 'INCOME' | 'EXPENSE';
   status: 'PAID' | 'PENDING' | 'SCHEDULED';
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   categoryId: string;
   creditCardId?: string;
   bankAccountId?: string;
   isRecurring: boolean;
-  recurrenceFreq?: string;
+  recurrenceFreq?: RecurrenceFrequency;
   recurrenceEnd?: string;
   installments?: number;
   installmentNum?: number;
@@ -32,7 +32,7 @@ interface UpdateTransactionData {
   date?: string;
   type?: 'INCOME' | 'EXPENSE';
   status?: 'PAID' | 'PENDING' | 'SCHEDULED';
-  paymentMethod?: string;
+  paymentMethod?: PaymentMethod;
   categoryId?: string;
   creditCardId?: string;
   bankAccountId?: string;
@@ -68,7 +68,7 @@ class TransactionsService {
       ...(type && { type }),
       ...(status && { status }),
       ...(categoryId && { categoryId }),
-      ...(paymentMethod && { paymentMethod }),
+      ...(paymentMethod && { paymentMethod: paymentMethod as PaymentMethod }),
       ...(startDate &&
         endDate && {
           date: {
