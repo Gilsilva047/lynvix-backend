@@ -28,15 +28,35 @@ const app: Application = express();
 app.use(helmet());
 
 // CORS
+const allowedOrigins = [
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+  'http://localhost:3000',
+  'http://localhost:5173', // Vite
+  'https://lyvinx-frontend-20.vercel.app',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'http://localhost:8000',
-      'http://127.0.0.1:8000',
-      process.env.FRONTEND_URL || 'http://localhost:3000'
-    ],
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (ex: Postman, mobile apps)
+      if (!origin) return callback(null, true);
+
+      // Permite origens da lista
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Permite qualquer subdomínio do Vercel em produção
+      if (origin.includes('.vercel.app')) {
+        return callback(null, true);
+      }
+
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );
